@@ -9,6 +9,8 @@ import (
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 var addr = flag.String("addr", ":8080", "http service address")
@@ -33,6 +35,7 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	godotenv.Load()
 	flag.Parse()
 	hub := newHub()
 	go hub.run()
