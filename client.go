@@ -6,6 +6,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -58,6 +59,12 @@ type Client struct {
 	auth string
 }
 
+type ChatMessage struct {
+	Target  string `json:"target"`
+	Source  string `json:"source"`
+	Message string `json:"message"`
+}
+
 // readPump pumps messages from the websocket connection to the hub.
 //
 // The application runs readPump in a per-connection goroutine. The application
@@ -85,7 +92,14 @@ func (c *Client) readPump() {
 		} else if (string(message)[:5] == "room:") {
 			c.room = string(message[5:])
 		} else if (c.auth != "") { // require a client to be authenticated to send messages
-			c.hub.broadcast <- &Message{message: message, from: c.auth, room: c.room}
+			var parsedMsg ChatMessage
+			err := json.Unmarshal(message, &parsedMsg)
+			if err != nil {
+				log.Println("Error parsing JSON:", err)
+				continue
+			}
+			log.Println("going to target:", parsedMsg.Target)
+			c.hub.broadcast <- &Message{message: message, from: c.auth, room: c.room, target: parsedMsg.Target}
 		}
 	}
 }

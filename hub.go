@@ -24,6 +24,9 @@ type Message struct {
 	// Auth string that belongs to the client the message is from. Default is empty: ""
 	from string
 
+	// Auth string that is set if a specific client is intended to recieve a message. Default is empty: ""
+	target string
+
 	// Room code for the associated message. Default is empty: ""
 	room string
 
@@ -52,7 +55,7 @@ func (h *Hub) run() {
 			}
 		case message := <-h.broadcast:
 			for client := range h.clients {
-				if (client.room == message.room) {
+				if ((message.target != "" && client.auth == message.target) || (message.target == "" && client.room == message.room)) {
 					select {
 					case client.send <- message.message:
 					default:
