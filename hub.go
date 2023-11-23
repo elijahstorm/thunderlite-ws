@@ -11,7 +11,7 @@ type Hub struct {
 	clients map[*Client]bool
 
 	// Inbound messages from the clients.
-	broadcast chan []byte
+	broadcast chan *Message
 
 	// Register requests from the clients.
 	register chan *Client
@@ -20,9 +20,20 @@ type Hub struct {
 	unregister chan *Client
 }
 
+type Message struct {
+	// Auth string that belongs to the client the message is from. Default is empty: ""
+	from string
+
+	// Room code for the associated message. Default is empty: ""
+	room string
+
+	// The data to represent the client message
+	message []byte
+}
+
 func newHub() *Hub {
 	return &Hub{
-		broadcast:  make(chan []byte),
+		broadcast:  make(chan *Message),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		clients:    make(map[*Client]bool),
@@ -41,11 +52,13 @@ func (h *Hub) run() {
 			}
 		case message := <-h.broadcast:
 			for client := range h.clients {
-				select {
-				case client.send <- message:
-				default:
-					close(client.send)
-					delete(h.clients, client)
+				if (client.room == message.room) {
+					select {
+					case client.send <- message.message:
+					default:
+						close(client.send)
+						delete(h.clients, client)
+					}
 				}
 			}
 		}

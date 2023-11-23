@@ -33,7 +33,7 @@ var (
 	space   = []byte{' '}
 )
 
-var upgrader = websocket.Upgrader{
+var upgrader = websocket.Upgrader {
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 	CheckOrigin: func(r *http.Request) bool {
@@ -50,6 +50,12 @@ type Client struct {
 
 	// Buffered channel of outbound messages.
 	send chan []byte
+
+	// the optional private room the client is in
+	room string
+
+	// the server tracked uuid string
+	auth string
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -74,7 +80,13 @@ func (c *Client) readPump() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-		c.hub.broadcast <- message
+		if (string(message)[:5] == "auth:") {
+			c.auth = string(message[5:])
+		} else if (string(message)[:5] == "room:") {
+			c.room = string(message[5:])
+		} else if (c.auth != "") { // require a client to be authenticated to send messages
+			c.hub.broadcast <- &Message{message: message, from: c.auth, room: c.room}
+		}
 	}
 }
 
@@ -131,7 +143,7 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
+	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256), room: "", auth: ""}
 	client.hub.register <- client
 
 	// Allow collection of memory referenced by the caller by doing all work in
